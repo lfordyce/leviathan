@@ -59,10 +59,6 @@ where
 {
     let resource = File::open(filename).await.unwrap();
 
-    // let b = csv_async::AsyncReaderBuilder::new()
-    //     .flexible(true)
-    //     .trim(csv_async::Trim::All);
-
     struct State<R: io::AsyncRead + Unpin + Send> {
         reader: csv_async::AsyncDeserializer<R>,
     }
@@ -74,12 +70,6 @@ where
         T: io::AsyncRead + Unpin + Send,
     {
         st.reader.deserialize::<TransactionEvent>()
-        // let mut rdr = csv_async::AsyncReaderBuilder::new()
-        //     .flexible(true)
-        //     .trim(csv_async::Trim::All)
-        //     .create_deserializer(File::open(st.filename.as_ref()).await?);
-
-        // rdr.deserialize::<TransactionEvent>()
     }
 
     let state = State {

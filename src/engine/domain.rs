@@ -1,12 +1,9 @@
 use rust_decimal::Decimal;
-use rust_decimal_macros::dec;
-use serde::{Deserialize, Deserializer, Serialize};
-use std::{fmt::Display, str::FromStr};
+use serde::{Deserialize, Serialize};
 
 /// Transaction type enum
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "lowercase")]
-#[repr(u8)]
 pub enum TransactionType {
     Deposit,
     Withdrawal,

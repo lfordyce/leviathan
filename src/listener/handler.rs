@@ -7,7 +7,7 @@ use futures::{stream::FuturesUnordered, StreamExt};
 use std::future::Future;
 use std::{fmt::Debug, sync::Arc};
 use tokio::sync::mpsc::UnboundedReceiver;
-use tokio::{sync::mpsc, task::JoinHandle, time::timeout};
+use tokio::{sync::mpsc, task::JoinHandle};
 
 pub type DispatcherHandlerRx<Upd> = UnboundedReceiver<UpdateWithCx<Upd>>;
 
@@ -35,6 +35,12 @@ where
 pub struct Dispatcher {
     messages_queue: Tx<TransactionEvent>,
     running_handlers: FuturesUnordered<JoinHandle<()>>,
+}
+
+impl Default for Dispatcher {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Dispatcher {
@@ -96,7 +102,6 @@ impl Dispatcher {
         ListenerE: Debug,
     {
         {
-            // println!("Dispatcher received an update");
             let update = match update {
                 Ok(update) => update,
                 Err(error) => {

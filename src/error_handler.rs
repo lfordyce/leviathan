@@ -1,10 +1,7 @@
 use futures::future::BoxFuture;
-use std::{convert::Infallible, fmt::Debug, future::Future, sync::Arc};
+use std::{fmt::Debug, future::Future, sync::Arc};
 
 /// An asynchronous handler of an error.
-///
-/// See [the module-level documentation for the design
-/// overview](crate::dispatching).
 pub trait ErrorHandler<E> {
     fn handle_error(self: Arc<Self>, error: E) -> BoxFuture<'static, ()>;
 }
