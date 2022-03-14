@@ -8,14 +8,15 @@ edition = "2021"
 [dependencies]
 async-trait = "0.1.51"
 async-stream = "0.3.2"
-csv-async = {version = "1.2.4", features = ["with_serde", "tokio"]}
-bytes = { version = "1.1.0", default-features = false }
-csv = "1.1"
+csv-async = { version = "1.2.4", features = ["with_serde", "tokio"] }
 futures = "0.3"
+lazy_static = "1.4.0"
 rust_decimal = "1.18"
-rust_decimal_macros = "1.18"
 serde = { version = "1", features = ["derive"] }
 thiserror = "1"
 tokio = { version = "1", features = ["full"] }
 tokio-util = { version = "0.7", features = ["full"] }
 tokio-stream = "0.1"
+
+[dev-dependencies]
+rust_decimal_macros = "1.18"

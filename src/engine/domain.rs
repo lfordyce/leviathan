@@ -59,9 +59,10 @@ pub struct AccountSnapshot {
 #[cfg(test)]
 mod test {
     use super::*;
+    use tokio_stream::StreamExt;
 
-    #[test]
-    fn test_decode_encode() {
+    #[tokio::test]
+    async fn test_decode_encode() {
         let data = r#"
 type,client,tx,amount
 deposit,1,1,56
@@ -71,12 +72,12 @@ deposit,3,86,34
 withdrawal,3,96,344
 chargeback,3,96
 dispute,3,96"#;
-        let mut rdr = csv::ReaderBuilder::new()
+        let mut rdr = csv_async::AsyncReaderBuilder::new()
             .flexible(true)
-            .trim(csv::Trim::All)
-            .from_reader(data.as_bytes());
-        for result in rdr.deserialize() {
-            let record: TransactionEvent = result.unwrap();
+            .trim(csv_async::Trim::All)
+            .create_deserializer(data.as_bytes());
+        while let Some(item) = rdr.deserialize::<TransactionEvent>().next().await {
+            let record: TransactionEvent = item.unwrap();
             println!("{:?}", record);
         }
     }
