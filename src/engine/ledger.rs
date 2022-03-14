@@ -13,6 +13,8 @@ use crate::engine::{
     error::LedgerError,
 };
 
+const MAX_DECIMAL_PLACES: u32 = 4;
+
 pub trait Aggregate {
     type Error;
     type ID: Send + Sync + Clone + PartialEq + PartialOrd + Hash + Eq;
@@ -43,6 +45,13 @@ pub trait Ledger<A> {
         self: Arc<Self>,
         id: <A as Aggregate>::ID,
     ) -> BoxFuture<'static, Result<<A as Aggregate>::Snapshot, Self::Error>>
+    where
+        A: Aggregate + Send + Sync + 'static,
+        <A as Aggregate>::ID: Clone;
+
+    fn all_snapshots(
+        self: Arc<Self>,
+    ) -> BoxFuture<'static, Result<Vec<<A as Aggregate>::Snapshot>, Self::Error>>
     where
         A: Aggregate + Send + Sync + 'static,
         <A as Aggregate>::ID: Clone;
@@ -112,6 +121,24 @@ where
                 Some(view) => Ok(view.snapshot(id)),
                 None => Err(()),
             }
+        })
+    }
+
+    fn all_snapshots(
+        self: Arc<Self>,
+    ) -> BoxFuture<'static, Result<Vec<<A as Aggregate>::Snapshot>, Self::Error>>
+    where
+        A: Aggregate + Send + Sync + 'static,
+        <A as Aggregate>::ID: Clone,
+    {
+        Box::pin(async move {
+            Ok(self
+                .view
+                .lock()
+                .await
+                .iter()
+                .map(|(id, entry)| entry.snapshot(id.clone()))
+                .collect::<Vec<_>>())
         })
     }
 }
@@ -202,15 +229,15 @@ impl Aggregate for Account {
         match tx_data.transaction_type {
             TransactionType::Deposit => {
                 self.check_tx_id(tx_id)?;
-                // TODO handle optional
-                self.balance.available += tx_data.amount.unwrap();
+                let tx_amount = tx_data.amount.ok_or(LedgerError::MissingAmount(tx_id))?;
+                self.balance.available += tx_amount;
                 self.record_tx(tx_id, tx_data);
             }
             TransactionType::Withdrawal => {
                 self.check_tx_id(tx_id)?;
-                // TODO handle optional
-                self.check_available_amount(tx_data.amount.unwrap())?;
-                self.balance.available -= tx_data.amount.unwrap();
+                let tx_amount = tx_data.amount.ok_or(LedgerError::MissingAmount(tx_id))?;
+                self.check_available_amount(tx_amount)?;
+                self.balance.available -= tx_amount;
                 self.record_tx(tx_id, tx_data);
             }
             TransactionType::Dispute => {
@@ -249,9 +276,9 @@ impl Aggregate for Account {
     fn snapshot(&self, id: Self::ID) -> Self::Snapshot {
         AccountSnapshot {
             client_id: id,
-            available: self.balance.available,
-            held: self.balance.held,
-            total: self.balance.available + self.balance.held,
+            available: self.balance.available.round_dp(MAX_DECIMAL_PLACES),
+            held: self.balance.held.round_dp(MAX_DECIMAL_PLACES),
+            total: (self.balance.available + self.balance.held).round_dp(MAX_DECIMAL_PLACES),
             locked: self.locked,
         }
     }

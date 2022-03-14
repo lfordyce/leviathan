@@ -14,4 +14,6 @@ pub enum LedgerError {
     DisputedTransaction(u32),
     #[error("Transaction ID: `{0}` is lower than previously recorded")]
     SuspiciousTransaction(u32),
+    #[error("Associated Transaction `{0}` is missing an amount when one is expected")]
+    MissingAmount(u32),
 }

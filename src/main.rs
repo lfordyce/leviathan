@@ -1,6 +1,6 @@
 use std::{env, error::Error};
 
-use leviathan::{listener::polling, pipeline};
+use leviathan::{listener::polling, pipeline, to_std_out};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -9,6 +9,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
         None => return Err(From::from("expected 1 argument, but got none")),
     };
 
-    pipeline(polling(path).await).await;
+    pipeline(polling(path).await, to_std_out).await;
     Ok(())
 }

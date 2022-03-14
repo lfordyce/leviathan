@@ -2,19 +2,14 @@ pub mod engine;
 pub mod error_handler;
 pub mod listener;
 
-use std::{
-    fmt::Debug,
-    sync::{
-        atomic::{AtomicU64, Ordering},
-        Arc,
-    },
-};
+use std::future::Future;
+use std::{fmt::Debug, sync::Arc};
 
 use futures::{future::BoxFuture, FutureExt, StreamExt};
-use lazy_static::lazy_static;
 use tokio::io;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 
+use crate::engine::domain::AccountSnapshot;
 use crate::{
     engine::{
         domain::TransactionEvent,
@@ -28,63 +23,70 @@ use crate::{
     },
 };
 
-lazy_static! {
-    static ref MESSAGE_COUNT: AtomicU64 = AtomicU64::new(0);
+pub trait TransactionDispatcherHandler {
+    fn handle(self: Arc<Self>, snapshot: Vec<AccountSnapshot>) -> BoxFuture<'static, ()>
+    where
+        AccountSnapshot: Send + 'static;
 }
 
-pub struct TransactionDispatcher<L> {
-    ledger: Arc<L>,
-}
-
-impl<A> Default for TransactionDispatcher<InMemoryLedger<A>>
+impl<F, Fut> TransactionDispatcherHandler for F
 where
-    A: Aggregate + Clone + Send + Sync + 'static,
+    F: Fn(Vec<AccountSnapshot>) -> Fut + Send + Sync + 'static,
+    Fut: Future<Output = ()> + Send + 'static,
 {
-    fn default() -> Self {
-        Self::new()
+    fn handle(self: Arc<Self>, snapshot: Vec<AccountSnapshot>) -> BoxFuture<'static, ()>
+    where
+        AccountSnapshot: Send + 'static,
+    {
+        Box::pin(async move { self(snapshot).await })
     }
 }
 
-impl<A> TransactionDispatcher<InMemoryLedger<A>>
+pub struct TransactionDispatcher<L, H> {
+    ledger: Arc<L>,
+    handler: Arc<H>,
+}
+
+impl<A, H> TransactionDispatcher<InMemoryLedger<A>, H>
 where
     A: Aggregate + Clone + Send + Sync + 'static,
+    H: TransactionDispatcherHandler + Send + Sync + 'static,
 {
-    pub fn new() -> Self {
+    pub fn new(handler: H) -> Self {
         Self {
             ledger: InMemoryLedger::new(),
+            handler: Arc::new(handler),
         }
     }
 }
 
-impl DispatcherHandler<TransactionEvent> for TransactionDispatcher<InMemoryLedger<Account>> {
+impl<H> DispatcherHandler<TransactionEvent> for TransactionDispatcher<InMemoryLedger<Account>, H>
+where
+    H: TransactionDispatcherHandler + Send + Sync + 'static,
+{
     fn handle(self, updates: DispatcherHandlerRx<TransactionEvent>) -> BoxFuture<'static, ()>
     where
         UpdateWithCx<TransactionEvent>: Send + 'static,
     {
         let this = Arc::new(self);
+        let other = Arc::clone(&this);
         UnboundedReceiverStream::new(updates)
             .for_each(move |cx| {
-                let this = Arc::clone(&this);
+                let ledger = Arc::clone(&this.ledger);
                 async move {
-                    if let Ok(account_id) = Arc::clone(&this.ledger)
+                    if let Err(_) = Arc::clone(&ledger)
                         .process_transaction(cx.update.client_id, cx.update.tx_id, cx.update)
                         .await
                     {
-                        if let Ok(snapshot) = Arc::clone(&this.ledger).snapshot(account_id).await {
-                            // unfortunate hack since updates are being streamed we need to
-                            // disable CSV headers after the first message
-                            let previous = MESSAGE_COUNT.fetch_add(1, Ordering::Relaxed);
-                            let mut wri = if previous == 0 {
-                                csv_async::AsyncWriterBuilder::new()
-                                    .has_headers(true)
-                                    .create_serializer(io::stdout())
-                            } else {
-                                csv_async::AsyncWriterBuilder::new()
-                                    .has_headers(false)
-                                    .create_serializer(io::stdout())
-                            };
-                            wri.serialize(&snapshot).await.unwrap();
-                        }
+                        eprintln!("failed to process event")
+                    }
+                }
+            })
+            .then(move |()| {
+                let this = Arc::clone(&other);
+                async move {
+                    if let Ok(snapshot) = Arc::clone(&this.ledger).all_snapshots().await {
+                        Arc::clone(&this.handler).handle(snapshot).await;
                     }
                 }
             })
@@ -92,16 +94,28 @@ impl DispatcherHandler<TransactionEvent> for TransactionDispatcher<InMemoryLedge
     }
 }
 
-pub async fn pipeline<'a, L, ListenerE>(listener: L)
+pub async fn pipeline<'a, L, ListenerE, H, Fut>(listener: L, handler: H)
 where
     L: UpdateListener<ListenerE> + Send + 'a,
     ListenerE: Debug,
+    H: Fn(Vec<AccountSnapshot>) -> Fut + Send + Sync + 'static,
+    Fut: Future<Output = ()> + Send + 'static,
 {
     Dispatcher::new()
-        .messages_handler(TransactionDispatcher::new())
+        .messages_handler(TransactionDispatcher::new(handler))
         .dispatch_with_listener(
             listener,
             LoggingErrorHandler::with_custom_text("An error from the update listener"),
         )
         .await;
+}
+
+pub async fn to_std_out(snapshot: Vec<AccountSnapshot>) {
+    let mut wri = csv_async::AsyncWriterBuilder::new()
+        .has_headers(true)
+        .create_serializer(io::stdout());
+
+    for data in snapshot {
+        wri.serialize(&data).await.unwrap();
+    }
 }

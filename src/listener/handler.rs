@@ -47,7 +47,6 @@ impl Default for Dispatcher {
 }
 
 impl Dispatcher {
-    /// Constructs a new dispatcher with the specified `requester`.
     pub fn new() -> Self {
         Self {
             messages_queue: None,
@@ -120,6 +119,7 @@ impl Dispatcher {
     }
 
     async fn wait_for_handlers(&mut self) {
+        // Drop all senders, then stop handlers
         self.messages_queue.take();
         self.running_handlers.by_ref().for_each(|_| async {}).await;
     }

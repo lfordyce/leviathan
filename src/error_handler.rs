@@ -81,7 +81,7 @@ where
     E: Debug,
 {
     fn handle_error(self: Arc<Self>, error: E) -> BoxFuture<'static, ()> {
-        println!("{text}: {:?}", error, text = self.text);
+        eprintln!("{text}: {:?}", error, text = self.text);
         Box::pin(async {})
     }
 }
