@@ -1,6 +1,6 @@
+use std::{env, error::Error};
+
 use leviathan::{listener::polling, pipeline};
-use std::env;
-use std::error::Error;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {

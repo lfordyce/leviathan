@@ -1,11 +1,17 @@
-use crate::engine::domain::{AccountSnapshot, Balance, TransactionEvent, TransactionType};
-use crate::engine::error::LedgerError;
+use std::{
+    collections::{HashMap, HashSet},
+    hash::Hash,
+    sync::Arc,
+};
+
 use futures::future::BoxFuture;
 use rust_decimal::Decimal;
-use std::collections::{HashMap, HashSet};
-use std::hash::Hash;
-use std::sync::Arc;
 use tokio::sync::Mutex;
+
+use crate::engine::{
+    domain::{AccountSnapshot, Balance, TransactionEvent, TransactionType},
+    error::LedgerError,
+};
 
 pub trait Aggregate {
     type Error;
@@ -253,8 +259,9 @@ impl Aggregate for Account {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use rust_decimal_macros::dec;
+
+    use super::*;
 
     #[test]
     fn test_initial_deposit() {

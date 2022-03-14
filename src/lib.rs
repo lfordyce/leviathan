@@ -2,19 +2,31 @@ pub mod engine;
 pub mod error_handler;
 pub mod listener;
 
-use crate::engine::domain::TransactionEvent;
-use crate::engine::ledger::{Account, Aggregate, InMemoryLedger, Ledger};
-use crate::error_handler::LoggingErrorHandler;
-use crate::listener::handler::{Dispatcher, DispatcherHandler, DispatcherHandlerRx};
-use crate::listener::update::UpdateWithCx;
-use crate::listener::UpdateListener;
-use futures::future::BoxFuture;
-use futures::{FutureExt, StreamExt};
+use std::{
+    fmt::Debug,
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        Arc,
+    },
+};
+
+use futures::{future::BoxFuture, FutureExt, StreamExt};
 use lazy_static::lazy_static;
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::{fmt::Debug, sync::Arc};
 use tokio::io;
 use tokio_stream::wrappers::UnboundedReceiverStream;
+
+use crate::{
+    engine::{
+        domain::TransactionEvent,
+        ledger::{Account, Aggregate, InMemoryLedger, Ledger},
+    },
+    error_handler::LoggingErrorHandler,
+    listener::{
+        handler::{Dispatcher, DispatcherHandler, DispatcherHandlerRx},
+        update::UpdateWithCx,
+        UpdateListener,
+    },
+};
 
 lazy_static! {
     static ref MESSAGE_COUNT: AtomicU64 = AtomicU64::new(0);

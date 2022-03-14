@@ -1,5 +1,6 @@
-use futures::future::BoxFuture;
 use std::{fmt::Debug, future::Future, sync::Arc};
+
+use futures::future::BoxFuture;
 
 /// An asynchronous handler of an error.
 pub trait ErrorHandler<E> {

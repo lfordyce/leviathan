@@ -1,11 +1,12 @@
 pub mod handler;
 pub mod update;
 
-use crate::engine::domain::TransactionEvent;
-use futures::Stream;
 use std::path::Path;
-use tokio::fs::File;
-use tokio::io;
+
+use futures::Stream;
+use tokio::{fs::File, io};
+
+use crate::engine::domain::TransactionEvent;
 
 pub trait UpdateListener<E>: for<'a> AsUpdateStream<'a, E> {}
 

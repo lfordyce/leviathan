@@ -58,8 +58,9 @@ pub struct AccountSnapshot {
 
 #[cfg(test)]
 mod test {
-    use super::*;
     use tokio_stream::StreamExt;
+
+    use super::*;
 
     #[tokio::test]
     async fn test_decode_encode() {
