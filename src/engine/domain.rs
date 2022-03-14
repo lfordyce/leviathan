@@ -78,8 +78,7 @@ dispute,3,96"#;
             .trim(csv_async::Trim::All)
             .create_deserializer(data.as_bytes());
         while let Some(item) = rdr.deserialize::<TransactionEvent>().next().await {
-            let record: TransactionEvent = item.unwrap();
-            println!("{:?}", record);
+            assert!(item.is_ok());
         }
     }
 }

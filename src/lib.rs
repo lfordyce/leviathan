@@ -23,13 +23,13 @@ use crate::{
     },
 };
 
-pub trait TransactionDispatcherHandler {
+pub trait SnapshotHandler {
     fn handle(self: Arc<Self>, snapshot: Vec<AccountSnapshot>) -> BoxFuture<'static, ()>
     where
         AccountSnapshot: Send + 'static;
 }
 
-impl<F, Fut> TransactionDispatcherHandler for F
+impl<F, Fut> SnapshotHandler for F
 where
     F: Fn(Vec<AccountSnapshot>) -> Fut + Send + Sync + 'static,
     Fut: Future<Output = ()> + Send + 'static,
@@ -50,7 +50,7 @@ pub struct TransactionDispatcher<L, H> {
 impl<A, H> TransactionDispatcher<InMemoryLedger<A>, H>
 where
     A: Aggregate + Clone + Send + Sync + 'static,
-    H: TransactionDispatcherHandler + Send + Sync + 'static,
+    H: SnapshotHandler + Send + Sync + 'static,
 {
     pub fn new(handler: H) -> Self {
         Self {
@@ -62,7 +62,7 @@ where
 
 impl<H> DispatcherHandler<TransactionEvent> for TransactionDispatcher<InMemoryLedger<Account>, H>
 where
-    H: TransactionDispatcherHandler + Send + Sync + 'static,
+    H: SnapshotHandler + Send + Sync + 'static,
 {
     fn handle(self, updates: DispatcherHandlerRx<TransactionEvent>) -> BoxFuture<'static, ()>
     where
@@ -74,9 +74,10 @@ where
             .for_each(move |cx| {
                 let ledger = Arc::clone(&this.ledger);
                 async move {
-                    if let Err(_) = Arc::clone(&ledger)
+                    if (Arc::clone(&ledger)
                         .process_transaction(cx.update.client_id, cx.update.tx_id, cx.update)
-                        .await
+                        .await)
+                        .is_err()
                     {
                         eprintln!("failed to process event")
                     }
@@ -94,10 +95,10 @@ where
     }
 }
 
-pub async fn pipeline<'a, L, ListenerE, H, Fut>(listener: L, handler: H)
+pub async fn pipeline<'a, L, ListenerErr, H, Fut>(listener: L, handler: H)
 where
-    L: UpdateListener<ListenerE> + Send + 'a,
-    ListenerE: Debug,
+    L: UpdateListener<ListenerErr> + Send + 'a,
+    ListenerErr: Debug,
     H: Fn(Vec<AccountSnapshot>) -> Fut + Send + Sync + 'static,
     Fut: Future<Output = ()> + Send + 'static,
 {
@@ -110,6 +111,7 @@ where
         .await;
 }
 
+/// Handler function that writes the account snapshots as a CSV to stdout.
 pub async fn to_std_out(snapshot: Vec<AccountSnapshot>) {
     let mut wri = csv_async::AsyncWriterBuilder::new()
         .has_headers(true)
