@@ -100,7 +100,7 @@ where
                 .entry(id.clone())
                 .and_modify(|account| {
                     if let Err(err) = account.apply_tx(tx_id.clone(), transaction.clone()) {
-                        eprintln!("Error processing transaction {err}");
+                        eprintln!("Error processing transaction: {err}");
                     }
                 })
                 .or_insert_with(|| <A as Aggregate>::new(tx_id, transaction));

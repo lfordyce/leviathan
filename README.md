@@ -15,6 +15,13 @@ cargo run -- transactions.csv > accounts.csv
 cargo run --release -- transactions.csv >accounts.csv
 ```
 
+## Error Handling
+- When an illegal action occurs, for example a transaction attempting to withdrawal more funds than available, the transaction will not be applied to the account and errors will output to `stderr`.
+- To capture account balances and errors separately, run the following:
+```shell
+cargo run -- 2> error.log 1> accounts.csv
+```
+
 ## Testing
 - Run unit tests
 ```shell
